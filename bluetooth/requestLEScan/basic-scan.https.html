@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/testdriver.js"></script>
+<script src="/resources/testdriver-vendor.js"></script>
+<script src="/bluetooth/resources/bluetooth-helpers.js"></script>
+<script>
+'use strict';
+const test_desc = 'requestLEScan recieves a scan result.';
+
+
+const company_id = '224';
+const data = new TextEncoder().encode('foo');
+const manufacturerDataMap = {[company_id]: data};
+const serviceDataMap = {[health_thermometer.uuid]: data};
+const scanRecord = {
+  name: 'Health Thermometer',
+  uuids: ['generic_access', health_thermometer.uuid],
+  txPower: 20,
+  appearance: 100,
+  manufacturerData: manufacturerDataMap,
+  serviceData: serviceDataMap,
+};
+let fake_central;
+let scanResult = {
+  deviceAddress: '09:09:09:09:09:09',
+  rssi: 100,
+  scanRecord: scanRecord,
+};
+let saw_scan = false;
+
+bluetooth_test(() => navigator.bluetooth.test.simulateCentral({ state: 'powered-on' })
+      .then(_ => fake_central = _)
+
+      // 1. Request a LE scan
+      .then(() => callWithTrustedClick(() => {
+        let scan = navigator.bluetooth.requestLEScan();
+        scan.then(() => {
+          assert_equals(scan.constructor.name, 'Promise');
+        })
+      }))
+      // 2. Register a listener on navigator.bluetooth
+      .then(() => {
+        navigator.bluetooth.addEventListener('advertisementreceived', event => {
+            assert_equals(event.constructor.name, 'BluetoothAdvertisingEvent')
+            assert_equals(event.device.name, scanRecord.name)
+            assert_array_equals(event.uuids, ["00001809-0000-1000-8000-00805f9b34fb"], "Ensure uuids")
+            assert_equals(event.txPower, 20, "Ensure txPower")
+            assert_equals(event.rssi, 100, "Ensure RSSI")
+
+            assert_equals(event.manufacturerData.constructor.name, 'BluetoothManufacturerDataMap', "BluetoothManufacturerDataMap")
+            assert_equals(data[0], event.manufacturerData.get(224).getUint8(0), "Verify first value of BluetoothManufacturerDataMap")
+            assert_equals(data[1], event.manufacturerData.get(224).getUint8(1), "Verify second value of BluetoothManufacturerDataMap")
+            assert_equals(data[2], event.manufacturerData.get(224).getUint8(2), "Verify third value of BluetoothManufacturerDataMap")
+
+            assert_equals(event.serviceData.constructor.name, 'BluetoothServiceDataMap')
+            assert_equals(data[0], event.serviceData.get(health_thermometer.uuid).getUint8(0), "Verify first value of serviceData")
+            assert_equals(data[1], event.serviceData.get(health_thermometer.uuid).getUint8(1), "Verify second value of serviceData")
+            assert_equals(data[2], event.serviceData.get(health_thermometer.uuid).getUint8(2), "Verify third value of serviceData")
+
+            saw_scan = true;
+          });
+      })
+      // 3. Send a advertisement
+      .then(() => {
+        fake_central.simulateAdvertisementReceived(scanResult);
+      })
+      // 4. Wait a bit for the event to be recieved
+      .then(() => new Promise(resolve => step_timeout(resolve, 50)))
+      // 5. Verify we saw the event
+      .then(() => {assert_true(saw_scan);})
+
+      , test_desc);
+</script>
