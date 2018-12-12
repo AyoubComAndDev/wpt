@@ -1,0 +1,37 @@
+<!doctype html>
+<html>
+<title>Quota Estimate: usage details reflect application cache changes.</title>
+<meta charset='utf-8'>
+<link rel='author' href='jarrydg@chromium.org' title='Jarryd Goodman'>
+<script src='/resources/testharness.js'></script>
+<script src='/resources/testharnessreport.js'></script>
+<script src='../cookie-store/resources/helpers.js'></script>
+<script>
+'use strict';
+
+promise_test(async t => {
+  const estimate = await navigator.storage.estimate();
+  assert_true(typeof estimate === 'object');
+  assert_true('usage' in estimate);
+  assert_equals(typeof estimate.usage, 'number');
+  assert_true('quota' in estimate);
+  assert_equals(typeof estimate.quota, 'number');
+}, 'estimate() resolves to dictionary with members');
+
+promise_test(async t => {
+  let estimate = await navigator.storage.estimate();
+
+  const usageBeforeCreate = estimate.usageDetails.applicationCache || 0;
+
+  const iframe = await createIframe('./resources/helper_iframe.html', t);
+  await waitForMessage();
+
+  estimate = await navigator.storage.estimate();
+  assert_true('applicationCache' in estimate.usageDetails);
+  const usageAfterCreate = estimate.usageDetails.applicationCache;
+
+  assert_greater_than(
+    usageAfterCreate, usageBeforeCreate);
+}, 'estimate() shows usage increase after app is cached');
+</script>
+</html>
