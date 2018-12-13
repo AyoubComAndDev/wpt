@@ -21,7 +21,7 @@ Note: because of the frequent creation and deletion of branches in this
 repo, it is recommended to "prune" stale branches when fetching updates,
 i.e. use `git pull --prune` (or `git fetch -p && git merge`).
 
-Running the Tests
+Running the Test
 =================
 
 The tests are designed to be run from your local computer. The test
